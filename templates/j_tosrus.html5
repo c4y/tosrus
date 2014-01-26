@@ -15,7 +15,7 @@ $GLOBALS['TL_CSS'][] = 'system/modules/tosrus/assets/css/jquery.tosrus.css||stat
       $('.ce_gallery').each(function(){
         $("a", this).TosRUs();
       });
-      $('a[data-lightbox').each(function(){
+      $('a[data-lightbox]').each(function(){
         if($(this).attr('data-lightbox').substring(0,2) != "lb") $(this).TosRUs();
       })
     });
