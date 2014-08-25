@@ -1,7 +1,7 @@
-/*	
- *	jQuery Touch Optimized Sliders "R"Us 1.4.0
+/*
+ *	jQuery Touch Optimized Sliders "R"Us 2.1.4
  *	
- *	Copyright (c) 2013 Fred Heusschen
+ *	Copyright (c) Fred Heusschen
  *	www.frebsite.nl
  *
  *	Plugin website:
@@ -11,1453 +11,879 @@
  *	http://en.wikipedia.org/wiki/MIT_License
  *	http://en.wikipedia.org/wiki/GNU_General_Public_License
  */
- 
- 
- //	Whishlist
- //	- drag image around if zoomed
 
-(function( $ )
-{
-	if ( $.fn.TosRUs )
+
+
+(function( $ ) {
+
+	var _PLUGIN_	= 'tosrus',
+		_ABBR_		= 'tos',
+		_VERSION_	= '2.1.4';
+
+
+	//	Plugin already excists
+	if ( $[ _PLUGIN_ ] )
 	{
 		return;
 	}
 
-	var $window, $html, $body;
-	var _viewScale = false,
-		_isTouch = ( 'ontouchstart' in window ),
-		_duration = 400;
+
+	//	Global variables
+	var _c = {}, _d = {}, _e = {}, _f = {}, _g = {};
 
 
-	$.fn.TosRUs = $.fn.tosrus = function( oDefault, oDesktop, oTouch )
+	/*
+		Class
+	*/
+	$[ _PLUGIN_ ] = function( $node, opts, conf )
 	{
+		this.$node	= $node;
+		this.opts	= opts;
+		this.conf	= conf;
 
-		if ( this.length == 0 )
+		this.vars	= {};
+		this.nodes	= {};
+		this.slides	= {};
+
+		this._init();
+
+		return this;
+	};
+	$[ _PLUGIN_ ].prototype = {
+
+		//	Initialize the plugin
+		_init: function()
 		{
-			return this;
-		}
+			var that = this;
 
+			this._complementOptions();
+			this.vars.fixed = ( this.opts.wrapper.target == 'window' );
 
-		/*
-			GLOBAL VARS
-		*/
-		var $tos = this,
-			_tos = this[ 0 ];
+			//	Add markup
+			this.nodes.$wrpr = $('<div class="' + _c.wrapper + '" />');
+			this.nodes.$sldr = $('<div class="' + _c.slider + '" />').appendTo( this.nodes.$wrpr );
+	
+			this.nodes.$wrpr
+				.addClass( this.vars.fixed ? _c.fixed : _c.inline )
+				.addClass( _c( 'fx-' + this.opts.effect ) )
+				.addClass( _c( this.opts.slides.scale ) )
+				.addClass( this.opts.wrapper.classes );
 
-		oDefault = complObject( oDefault, {} );
-		oDefault = ( _isTouch )
-			? $.extend( true, {}, oDefault, oTouch )
-			: $.extend( true, {}, oDefault, oDesktop );
+			//	Bind events
+			this.nodes.$wrpr
 
-		var opts = complementOptions( oDefault, $tos, _tos ),
-			_fixed = ( opts.wrapper.target == 'window' ),
-			_index = 0,
-			_total = 0,
-			_scrollPosition = 0;
-
-		$window = $(window);
-		$html 	= $('html');
-		$body 	= $('body');
-
-		if ( !_viewScale && _isTouch && typeof FlameViewportScale != 'undefined' )
-		{
-			_viewScale = new FlameViewportScale();
-		}
-
-
-		/*
-			MARKUP
-		*/
-		var $wrpr = $('<div class="' + cls( 'wrapper' ) + '" />'),
-			$sldr = $('<div class="' + cls( 'slider' ) + '" />').appendTo( $wrpr ),
-			$clse = null,
-			$capt = null,
-			$prev = null,
-			$next = null;
-
-		$wrpr
-			.css( opts.wrapper.css )
-			.addClass( cls( _fixed ? 'fixed' : 'inline' ) )
-			.addClass( cls( _isTouch ? 'touch' : 'desktop' ) )
-			.addClass( cls( opts.slides.scale ) );
-
-		if ( opts.caption )
-		{
-			$capt = $('<div class="' + cls( 'caption' ) + '" />').appendTo( $wrpr );
-		}
-		if ( opts.prev.button )
-		{
-			$prev = ( opts.prev.button instanceof $ )
-				? opts.prev.button
-				: $('<a class="' + cls( 'prev' ) + '" href="#" />').appendTo( $wrpr );
-		}
-		if ( opts.next.button )
-		{
-			$next = ( opts.next.button instanceof $ )
-				? opts.next.button
-				: $('<a class="' + cls( 'next' ) + '" href="#" />').appendTo( $wrpr );
-		}
-		if ( opts.close.button )
-		{
-			$clse = ( opts.close.button instanceof $ )
-				? opts.close.button
-				: $('<a class="' + cls( 'close' ) + '" href="#" />').appendTo( $wrpr );
-		}
-
-
-		/*
-			ADD SLIDES
-		*/
-		var $anchors = getValidAnchors( $tos, opts ),
-			$slides = _initSlides( $tos, $anchors, $wrpr, $sldr, opts );
-
-
-		_total = $slides.length;
-		_index = setIndex( _index, $wrpr );
-
-
-		/*
-			EVENTS
-		*/
-		$wrpr
-			.bind(
-				evt( '' ),
-				function( e )
-				{
-					e.stopPropagation();
-				}
-			)
-
-			//	Open event, opens the gallery and slides to the designated slide
-			.bind(
-				evt( 'open' ),
-				function( e, index, direct )
-				{
-					if ( !_opened )
+				//	Custom events
+				.on( _e.open + ' ' + _e.close + ' ' + _e.prev + ' ' + _e.next + ' ' + _e.slideTo,
+					function( e )
 					{
-						if ( _fixed )
+						arguments = Array.prototype.slice.call( arguments );
+						var e = arguments.shift(),
+							t = e.type;
+	
+						e.stopPropagation();
+
+						if ( typeof that[ t ] == 'function' )
 						{
-							_scrollPosition = $window.scrollTop();
+							that[ t ].apply( that, arguments );
 						}
-
-						$wrpr
-							.show()
-							.css( 'opacity', 0 )
-							.addClass( cls( 'hover' ) );
-
-						animate(
-							$wrpr,
-							{ 'opacity': 1 },
-							direct
-						);
-
-
-						//	scale buttons
-						scaleButtons( [ $prev, $next, $clse ], $capt );
-
-						//	callback event
-						$wrpr.trigger( evt( 'opening' ), [ index, direct ] );
 					}
+				)
 
-					loadContents( $sldr, _index, opts );
-
- 					direct = ( direct || !_opened );
-
-					_opened = setOpened( true, $wrpr );
-
-					if ( $.isNumeric( index ) )
+				//	Callback events
+				.on( _e.opening + ' ' + _e.closing + ' ' + _e.sliding + ' ' + _e.loading + ' ' + _e.loaded,
+					function( e )
 					{
-						$wrpr.trigger( evt( 'slideTo' ), [ index, direct ] );
+						e.stopPropagation();
 					}
-				}
-			)
+				)
 
-			//	Close event, closes the gallery
-			.bind(
-				evt( 'close' ),
-				function( e, direct )
-				{
-					if ( _opened )
+				//	Toggle UI
+				.on( _e.click,
+					function( e )
 					{
-						$wrpr.removeClass( cls( 'hover' ) );
-
-						stopVideo( $wrpr.find( '.' + cls( 'video' ) ), 'stop' );
-
-						if ( typeof direct == 'undefined' )
+						e.stopPropagation();
+						switch ( that.opts.wrapper.onClick )
 						{
-							direct = _duration / 2;
+							case 'toggleUI':
+								that.nodes.$wrpr.toggleClass( _c.hover );
+								break;
+							
+							case 'close':
+								that.close();
+								break;
 						}
+					}
+				);
 
-						animate(
-							$wrpr,
-							{ 'opacity': 0 },
-							direct,
-							function()
+			//	Prevent pinching if opened
+			if ( $.fn.hammer && $[ _PLUGIN_ ].support.touch )
+			{
+				this.nodes.$wrpr
+					.hammer()
+					.on( _e.pinch,
+						function( e )
+						{
+							if ( _g.$body.hasClass( _c.opened ) )
 							{
-								$wrpr.hide();
+								e.gesture.preventDefault();
+								e.stopPropagation();
 							}
-						);
-
-						//	callback event
-						$wrpr.trigger( evt( 'closing' ), [ direct ] );
-					}
-					_opened = setOpened( false, $wrpr );
-				}
-			)
-
-			//	Prev + Prev events, slides to the previous / next set of slides
-			.bind(
-				evt( 'prev' ) + ' ' + evt( 'next' ),
-				function( e, slides, duration, easing )
-				{
-					if ( !$.isNumeric( slides ) )
-					{
-						slides = opts[ e.type ].slides;
-					}
-					$wrpr.trigger( evt( 'slideTo' ), [ ( e.type == 'prev' ) ? _index - slides : _index + slides, duration, easing ] );
-				}
-			)
-
-			//	SlideTo event, slides to the designated slide
-			.bind(
-				evt( 'slideTo' ),
-				function( e, slide, duration, easing )
-				{
-					if ( !_opened )
-					{
-						return false;
-					}
-					if ( !$.isNumeric( slide ) )
-					{
-						return false;
-					}
-
-					var doSlide = true;
-
-					//	Less then first
-					if ( slide < 0 )
-					{
-						slide = 0;
-						if ( _index == 0 )
-						{
-							doSlide = false;
 						}
-					}
-
-					//	More then last
-					else if ( slide + opts.slides.visible > _total )
-					{
-						slide = _total - opts.slides.visible;
-						if ( _index + opts.slides.visible >= _total )
-						{
-							doSlide = false;
-						}
-					}
-
-					var $curSlide = $sldr.children().eq( _index );
-
-					_index = setIndex( slide, $wrpr );
-
-					loadContents( $sldr, _index, opts );
-					setButtons( $prev, $next, _index, _total, opts );
-
-					if ( doSlide )
-					{
-						//	Slide
-						var left = 0 - ( _index * opts.slides.width ) + opts.slides.offset;
-						if ( opts.slidesWidthPercentage )
-						{
-							left += '%';
-						}
-						animate(
-							$sldr,
-							{ 'left': left },
-							duration,
-							null,
-							easing
-						);
-
-						//	Get caption
-						if ( opts.caption )
-						{
-							var caption = $sldr.children().eq( _index ).data( dta( 'caption' ) );
-							$capt
-								.text( caption )
-								[ ( caption.length > 0 ) ? 'show' : 'hide' ]();
-						}
-
-						stopVideo( $curSlide.filter( '.' + cls( 'video' ) ), 'pause' );
-
-						//	callback event
-						$wrpr.trigger( evt( 'sliding' ), [ _index, duration ] );
-					}
-				}
-			)
-
-			//	Toggle UI
-			.bind(
-				evt( 'click' ),
-				function( e )
-				{
-					$wrpr.toggleClass( cls( 'hover' ) );
-				}
-			);
-
-
-		/*
-			BUTTONS
-		*/
-		setButtons( $prev, $next, _index, _total, opts );
-		_initButtons(
-			$wrpr,
-			{
-				'prev'	: $prev,
-				'next'	: $next,
-				'close'	: $clse
+					);
 			}
-		);
-		$window.bind(
-			evt( 'orientationchange' ),
-			function()
+
+			//	Nodes
+			this.nodes.$anchors = this._initAnchors();
+			this.nodes.$slides  = this._initSlides();
+
+			//	Slides
+			this.slides.total	= this.nodes.$slides.length;
+			this.slides.visible	= this.opts.slides.visible;
+			this.slides.index	= 0;
+
+			//	Vars
+			this.vars.opened	= true;
+
+
+			//	Init addons
+			for ( var a = 0; a < $[ _PLUGIN_ ].addons.length; a++ )
 			{
-				if ( _opened )
+				if ( $.isFunction( this[ '_addon_' + $[ _PLUGIN_ ].addons[ a ] ] ) )
 				{
-					scaleButtons( [ $prev, $next, $clse ], $capt, 250 );
+					this[ '_addon_' + $[ _PLUGIN_ ].addons[ a ] ]();
 				}
 			}
-		);
-
-
-		/*
-			KEYPRESSES
-		*/
-		_initKeys( $wrpr, opts );
-
-
-		/*
-			DRAGGING
-		*/
-		if ( opts.touch.drag )
-		{
-			$.fn.TosRUs.dragSlide( $wrpr, opts.slides.visible, _total );
-		}
-
-
-		/*
-			PREVENT SCROLLING
-		*/
-		if ( _fixed )
-		{
-			$window.bind(
-				evt( 'scroll' ),
-				function( e )
-				{
-					if ( _opened )
-					{
-						window.scrollTo( 0, _scrollPosition );
-						e.preventDefault();
-						e.stopImmediatePropagation();
-					}
-				}
-			);
-		}
-
-
-		/*
-			START
-		*/
-		var _opened = setOpened( true, $wrpr );
-
-		if ( _fixed )
-		{
-			$wrpr
-				.appendTo( $body )
-				.trigger( evt( 'close' ), [ true ] );
-		}
-		else
-		{
-			$wrpr.appendTo( opts.wrapper.target );
-
-			if ( opts.show )
+			for ( var u = 0; u < $[ _PLUGIN_ ].ui.length; u++ )
 			{
-				_opened = setOpened( false, $wrpr );
-				$wrpr.trigger( evt( 'open' ), [ 0, true ] );
+				if ( this.nodes.$wrpr.find( '.' + _c[ $[ _PLUGIN_ ].ui[ u ] ] ).length )
+				{
+					this.nodes.$wrpr.addClass( _c( 'has-' + $[ _PLUGIN_ ].ui[ u ] ) );
+				}
+			}
+
+
+			//	Start
+			if ( this.vars.fixed )
+			{
+				this.nodes.$wrpr.appendTo( _g.$body );
+				this.close( true );
 			}
 			else
 			{
-				$wrpr.trigger( evt( 'close' ), [ true ] );
+				this.nodes.$wrpr.appendTo( this.opts.wrapper.target );
+
+				if ( this.opts.show )
+				{
+					this.vars.opened = false;
+					this.open( 0, true );
+				}
+				else
+				{
+					this.close( true );
+				}
 			}
-		}
-
-		return $wrpr;
-	};
+		},
 
 
-	/*
-		Public variables
-	*/
-	$.fn.TosRUs.isTouch = _isTouch;
+		//	Open method, opens the gallery and slides to the designated slide
+		open: function( index, direct )
+		{
+			var that = this;
 
-
-	/*
-		Public methods
-	*/
-	$.fn.TosRUs.dragSlide = function( $wrpr, _visible, _total )
-	{
-		var $sldr = $wrpr.find( '> .' + cls( 'slider' ) );
-
-		var _distance = 0,
-			_direction = false,
-			_swiping = false;
-
-		$wrpr
-			.hammer()
-			.on(
-				evt( 'dragleft' ) + ' ' + evt( 'dragright' ),
-				function( e )
+			if ( !this.vars.opened )
+			{
+				if ( this.vars.fixed )
 				{
-					e.gesture.preventDefault();
-			        e.stopPropagation();
-
-					_distance = e.gesture.deltaX;
-					_direction = e.gesture.direction;
-					_swiping = false;
-
-					if ( ( _direction == 'left' && $wrpr.data( dta( 'index' ) ) + _visible >= _total  ) ||
-						( _direction == 'right' && $wrpr.data( dta( 'index' ) ) == 0 ) )
-					{
-						_distance /= 2.5;
-					}
-
-					$sldr.css( 'marginLeft', Math.round( _distance ) );
+					_g.scrollPosition = _g.$wndw.scrollTop();
+					_g.$body.addClass( _c.opened );
+					_f.setViewportScale();
 				}
-			)
-			.on(
-				evt( 'swipeleft' ) + ' ' + evt( 'swiperight' ),
-				function( e )
+
+				if ( direct )
 				{
-					e.gesture.preventDefault();
-			        e.stopPropagation();
-			        _swiping = true;
+					this.nodes.$wrpr
+						.addClass( _c.opening )
+						.trigger( _e.opening, [ index, direct ] );
 				}
-			)
-			.on(
-				evt( 'dragend' ),
-				function( e )
+				else
 				{
-					e.gesture.preventDefault();
-			        e.stopPropagation();
-
-					var duration = _duration / 2;
-
-					if ( _direction == 'left' || _direction == 'right' )
-					{
-						var easing = null;
-						if ( _swiping )
+					setTimeout(
+						function()
 						{
-							var slides = _visible;
-							easing = 'swipeOutTos';
-						}
-						else
-						{
-							var slideWidth = $sldr.children().first().width(),
-								slides = Math.floor( ( Math.abs( _distance ) + ( slideWidth / 2 ) ) / slideWidth );	
-						}
-
-						if ( slides > 0 )
-						{
-							$wrpr.trigger( evt( _direction == 'left' ? 'next' : 'prev' ), [ slides, duration, easing ] );
-						}
-					}
-
-					animate(
-						$sldr,
-						{ 'marginLeft': 0 },
-						duration,
-						null,
-						easing
-					);
-
-					_direction = false;
-				}
-			)
-			.on(
-				evt( 'pinch' ),
-				function( e )
-				{
-					e.gesture.preventDefault();
-					e.stopPropagation();
-				}
-			);
-	}
-	$.fn.TosRUs.pinchZoom = function( $img )
-	{
-		var _endScale = 1,
-			_curScale = 1,
-			_oldScale = 1,
-			_newScale = 1;
-
-		$img
-			.hammer()
-			.on(
-				evt( 'pinch' ),
-				function(e)
-				{
-					e.gesture.preventDefault();
-					e.stopPropagation();
-
-					_endScale = ( e.gesture.scale - _curScale ) * _oldScale;
-					_curScale = e.gesture.scale;
-					_newScale = restrictMinMax( _newScale + _endScale, 0.5, 4 );
-
-					$img.css({
-						'transform': 'scale( ' + _newScale + ' )'
-					});
-				}
-			)
-			.on(
-				evt( 'doubletap' ),
-				function( e )
-				{
-					e.gesture.preventDefault();
-					e.stopPropagation();
-
-					_endScale = 0;
-					_curScale = 1;
-					_newScale = ( _oldScale > 1 ) ? 1 : 3;
-					_oldScale = animateScale(
-						$img,
-						_oldScale, 
-						_newScale
+							that.nodes.$wrpr
+								.addClass( _c.opening )
+								.trigger( _e.opening, [ index, direct ] );
+						}, 5
 					);
 				}
-			)
-			.on(
-				evt( 'release' ),
-				function( e )
+
+				this.nodes.$wrpr
+					.addClass( _c.hover )
+					.addClass( _c.opened );
+			}
+
+			this.vars.opened = true;
+			this._loadContents();
+
+			//	Slide to given slide
+			if ( $.isNumeric( index ) )
+			{
+				direct = ( direct || !this.vars.opened );
+				this.slideTo( index, direct );
+			}
+		},
+
+
+		//	Close method, closes the gallery
+		close: function( direct )
+		{
+			if ( this.vars.opened )
+			{
+				if ( this.vars.fixed )
 				{
-					e.gesture.preventDefault();
-					e.stopPropagation();
+					_g.$body.removeClass( _c.opened );
+				}
 
-					_endScale = 0;
-					_curScale = 1;
-					_oldScale = _newScale;
+				if ( direct )
+				{
+					this.nodes.$wrpr.removeClass( _c.opened );
+				}
+				else
+				{
+					_f.transitionend( this.nodes.$wrpr,
+						function()
+						{
+							$(this).removeClass( _c.opened );
+						}, this.conf.transitionDuration
+					);
+				}
 
-					//	After scaled < 1, animate to 1
-					if ( _oldScale < 1 )
+				//	Close + Callback event
+				this.nodes.$wrpr
+					.removeClass( _c.hover )
+					.removeClass( _c.opening )
+					.trigger( _e.closing, [ this.slides.index, direct ] );
+			}
+			this.vars.opened = false;
+		},
+
+
+		//	Prev method, slides to the previous set of slides
+		prev: function( slides, direct )
+		{
+			if ( !$.isNumeric( slides ) )
+			{
+				slides = this.opts.slides.slide;
+			}
+			this.slideTo( this.slides.index - slides, direct );
+
+		},
+
+
+		//	Next method, slides to the next set of slides
+		next: function( slides, direct )
+		{
+			if ( !$.isNumeric( slides ) )
+			{
+				slides = this.opts.slides.slide;
+			}
+			this.slideTo( this.slides.index + slides, direct );
+		},
+
+
+		//	SlideTo method, slides to the designated slide
+		slideTo: function( index, direct )
+		{
+			if ( !this.vars.opened )
+			{
+				return false;
+			}
+			if ( !$.isNumeric( index ) )
+			{
+				return false;
+			}
+
+			var doSlide = true;
+
+			//	Less then first
+			if ( index < 0 )
+			{
+				var atStart = ( this.slides.index == 0 );
+
+				//	Infinite
+				if ( this.opts.infinite )
+				{
+					if ( atStart )
 					{
-						_newScale = 1;
-						_oldScale = animateScale(
-							$img,
-							_oldScale, 
-							_newScale
-						);
+						index = this.slides.total - this.slides.visible;
+					}
+					else
+					{
+						index = 0;
 					}
 				}
-			);
-	}
-
-
-	/*
-		SWIPE EASING		
-	*/
-	jQuery.extend( jQuery.easing,
-	{
-		swipeOutTos: function (x, t, b, c, d) {
-			return c * Math.sin( t / d * ( Math.PI / 2 ) ) + b;
-		}
-	});
-
-
-	/*
-		INIT FUNCTIONS
-	*/
-	function _initSlides( $tos, $anchors, $wrpr, $sldr, opts )
-	{
-		if ( opts.slides.collect )
-		{
-			_initSlidesFromAnchors( $tos, $anchors, $wrpr, $sldr, opts );
-		}
-		else
-		{
-			_initSlidesFromContent( $tos, $anchors, $wrpr, $sldr, opts );
-		}
-
-		var $slides = $sldr.children();
-
-		//	CSS
-		if ( opts.slides.css )
-		{
-			$slides.css( opts.slides.css );
-		}
-
-		var width = opts.slides.width;
-		if ( opts.slidesWidthPercentage )
-		{
-			width += '%';
-		}
-		$slides.css( 'width', width );
-
-		return $slides;
-	}
-	function _initSlidesFromAnchors( $tos, $anchors, $wrpr, $sldr, opts )
-	{
-		getZoomAnchors( $anchors, opts ).addClass( cls( 'zoom' ) );
-
-		$anchors
-			.css( opts.anchors.css )
-			.each(
-				function( index )
+				//	Non-infinite
+				else
 				{
-					var $anchor = $(this);
-
-					//	Create the slide
-					var $slide = $('<div class="' + cls( 'slide' ) + ' ' + cls( 'loading' ) + '" />')
-						.data( dta( 'anchor' ), $anchor )
-						.data( dta( 'content' ), $anchor.attr( 'href' ) )
-						.appendTo( $sldr );
-	
-					//	Clicking an achor opens the slide
-					$anchor
-						.data( dta( 'slide' ), $slide )
-						.bind(
-							evt( opts.anchors.event ),
-							function( e )
-							{
-								e.preventDefault();
-								$wrpr.trigger( evt( 'open' ), [ index ] );
-							}
-						);
-
-					//	Get caption
-					if ( opts.caption )
+					index = 0;
+					if ( atStart )
 					{
-						$slide.data( dta( 'caption' ), '' );
-						for ( var c = 0, l = opts.caption.length; c < l; c++ )
+						doSlide = false;
+					}
+				}
+			}
+
+			//	More then last
+			if ( index + this.slides.visible > this.slides.total )
+			{
+				var atEnd = ( this.slides.index + this.slides.visible >= this.slides.total );
+
+				//	Infinite
+				if ( this.opts.infinite )
+				{
+					if ( atEnd )
+					{
+						index = 0;
+					}
+					else
+					{
+						index = this.slides.total - this.slides.visible;
+					}
+				}
+				//	Non-infinite
+				else
+				{
+					index = this.slides.total - this.slides.visible;
+					if ( atEnd )
+					{
+						doSlide = false;
+					}
+				}
+			}
+
+			this.slides.index = index;
+			this._loadContents();
+
+			if ( doSlide )
+			{
+				var left = 0 - ( this.slides.index * this.opts.slides.width ) + this.opts.slides.offset;
+				if ( this.slides.widthPercentage )
+				{
+					left += '%';
+				}
+
+				if ( direct )
+				{
+					this.nodes.$sldr.addClass( _c.noanimation );
+					_f.transitionend( this.nodes.$sldr,
+						function()
 						{
-							var caption = $anchor.attr( opts.caption[ c ] );
-							if ( caption && caption.length )
+							$(this).removeClass( _c.noanimation );
+						}, 5
+					);
+				}
+
+				//	Transition
+				for ( var e in $[ _PLUGIN_ ].effects )
+				{
+					if ( e == this.opts.effect )
+					{
+						$[ _PLUGIN_ ].effects[ e ].call( this, left, direct );
+						break;
+					}
+				}
+				
+				//	Callback event
+				this.nodes.$wrpr.trigger( _e.sliding, [ index, direct ] );
+			}
+		},
+
+		_initAnchors: function()
+		{
+			var that = this,
+				$a = $();
+
+			if ( this.$node.is( 'a' ) )
+			{
+				for ( var m in $[ _PLUGIN_ ].media )
+				{
+					$a = $a.add( 
+							this.$node.filter(
+								function()
+								{
+									return $[ _PLUGIN_ ].media[ m ].filterAnchors.call( that, $(this).attr( 'href' ) );
+								}
+							)
+						);
+				}
+			}
+			return $a;
+		},
+		_initSlides: function()
+		{
+			this[ this.$node.is( 'a' ) ? '_initSlidesFromAnchors' : '_initSlidesFromContent' ]();
+			return this.nodes.$sldr.children().css( 'width', this.opts.slides.width + ( this.slides.widthPercentage ? '%' : 'px' ) );
+		},
+		_initSlidesFromAnchors: function()
+		{
+			var that = this;
+
+			this.nodes.$anchors
+				.each(
+					function( index )
+					{
+						var $anchor = $(this);
+
+						//	Create the slide
+						var $slide = $('<div class="' + _c.slide + ' ' + _c.loading + '" />')
+							.data( _d.anchor, $anchor )
+							.appendTo( that.nodes.$sldr );
+
+						//	Clicking an achor opens the slide
+						$anchor
+							.data( _d.slide, $slide )
+							.on( _e.click,
+								function( e )
+								{
+									e.preventDefault();
+									that.open( index );
+								}
+							);
+					}
+				);
+		},
+		_initSlidesFromContent: function()
+		{
+			var that = this;
+
+			this.$node
+				.children()
+				.each(
+					function()
+					{
+						var $slide = $(this);
+
+						$('<div class="' + _c.slide + '" />')
+							.append( $slide )
+							.appendTo( that.nodes.$sldr );
+
+						//	Init slide content
+						for ( var m in $[ _PLUGIN_ ].media )
+						{
+							if ( $[ _PLUGIN_ ].media[ m ].filterSlides.call( that, $slide ) )
 							{
-								$slide.data( dta( 'caption' ), caption );
+								$[ _PLUGIN_ ].media[ m ].initSlides.call( that, $slide );
+								$slide.parent().addClass( _c( m ) );
 								break;
 							}
 						}
 					}
-				}
 			);
-	}
-	function _initSlidesFromContent( $tos, $anchors, $wrpr, $sldr, opts )
-	{
-		$tos.children().each(
-			function( index )
-			{
-				var $slide = $(this);
+		},
 
-				$('<div class="' + cls( 'slide' ) + '" />')
-					.append( $slide )
-					.appendTo( $sldr );
-
-				$slide = $slide.parent();
-				$slide.data( dta( 'caption' ), '' );
-
-				var $content = $slide.children(),
-					contenttype = 'html',
-					videotype = 'youtube';
-				
-				//	IMAGE
-				if ( $content.is( 'img' ) )
-				{
-					contenttype = 'image';
-				}
-				
-				//	(video)
-				else if ( $content.is( 'iframe' ) && $content.attr( 'src' ) )
-				{
-					var src = $content.attr( 'src' ).toLowerCase();
-
-					//	YOUTUBE
-					if ( src.indexOf( 'youtube.com/embed/' ) > -1 )
-					{
-						contenttype = 'video';
-					}
-					
-					//	VIMEO
-					else if ( src.indexOf( 'vimeo.com/video/' ) > -1 )
-					{
-						contenttype = 'video';
-						videotype = 'vimeo';
-					}
-				}
-
-				$slide.data( dta( 'contenttype' ), contenttype );
-
-				switch ( contenttype )
-				{
-
-					//	IMAGE
-					case 'image':
-						if ( opts.touch.zoom )
-						{
-							$.fn.TosRUs.pinchZoom( $content );
-						}
-						break;
-
-
-					//	HTML NODE
-					case 'html':
-						$content.wrap( '<div class="' + cls( 'content' ) + '" />' );
-						break;
-
-
-					//	VIDEO
-					case 'video':
-						$slide.data( dta( 'videotype' ), videotype );
-						_initResizeVideo(
-							$slide,
-							opts.video.ratio,
-							opts.video.maxWidth,
-							opts.video.maxHeight
-						);
-						break;
-				}
-			}
-		);
-	}
-	function _initResizeVideo( $slide, ratio, maxWidth, maxHeight )
-	{
-		var $video = $slide.children();
-
-		$slide
-			.addClass( cls( 'video' ) )
-			.bind(
-				evt( 'resizeVideo' ),
-				function()
-				{
-					$video.removeAttr( 'style' );
-					var _w = $slide.width(),
-						_h = $slide.height();
-	
-					if ( maxWidth && _w > maxWidth )
-					{
-						_w = maxWidth;
-					}
-					if ( maxHeight && _h > maxHeight )
-					{
-						_h = maxHeight;
-					}
-	
-					if ( _w / _h < ratio )
-					{
-						_h = _w / ratio;
-					}
-					else
-					{
-						_w = _h * ratio;
-					}
-	
-					$video.width( _w );	
-					$video.height( _h );
-				}
-			);
-
-		$window.bind(
-			evt( 'resize' ),
-			function( e )
-			{
-				$slide.trigger( evt( 'resizeVideo' ) );
-			}
-		);
-	}
-
-	function _initButtons( $wrpr, btns )
-	{
-		$.each(
-			btns,
-			function( index, value )
-			{
-				if ( value )
-				{
-					value.bind(
-						evt( 'click' ),
-						function( e )
-						{
-							e.stopPropagation();
-							e.preventDefault();
-							$wrpr.trigger( evt( index ) );
-						}
-					);
-				}
-			}
-		);
-	}
-	function _initKeys( $wrpr, opts )
-	{
-		if ( opts.prev.key || opts.next.key || opts.close.key )
+		_loadContents: function()
 		{
-			$(document).bind(
-				evt( 'keyup' ),
-				function( e )
-				{
-					var k = e.keyCode;
+			var that = this;
 
-					if ( k == 27 || k == 37 || k == 39 )
-					{
-						if ( $wrpr.data( dta( 'opened' ) ) )
+			switch ( this.opts.slides.load )
+			{
+				//	Load all
+				case 'all':
+					this._loadContent( 0, this.slides.total );
+					break;
+
+				//	Load current
+				case 'visible':
+					this._loadContent( this.slides.index, this.slides.index + this.slides.visible );
+					break;
+
+				//	Load current + prev + next
+				case 'near-visible':
+				default:
+					this._loadContent( this.slides.index, this.slides.index + this.slides.visible );
+					setTimeout(
+						function()
 						{
-							if ( k == 27 && opts.close.key )
+							that._loadContent( that.slides.index - that.slides.visible, that.slides.index );								//	prev
+							that._loadContent( that.slides.index + that.slides.visible, that.slides.index + ( that.slides.visible * 2 ) );	//	next
+						}, this.conf.transitionDuration
+					);
+					break;
+			}
+		},
+		_loadContent: function( start, end )
+		{
+			var that = this;
+
+			this.nodes.$slides
+				.slice( start, end )
+				.each(
+					function()
+					{
+						var $slide		= $(this),
+							contenttype = false;
+
+						if ( $slide.children().length == 0 )
+						{
+							var content = $slide.data( _d.anchor ).attr( 'href' );
+
+							//	Search for slide content
+							for ( var m in $[ _PLUGIN_ ].media )
 							{
-								e.preventDefault();
-								$wrpr.trigger( evt( 'close' ) );
+								if ( $[ _PLUGIN_ ].media[ m ].filterAnchors.call( that, content ) )
+								{
+									$[ _PLUGIN_ ].media[ m ].initAnchors.call( that, $slide, content );
+									$slide.addClass( _c( m ) );
+									break;
+								}
 							}
-							else if ( 
-								( k == 37 && opts.prev.key ) ||
-								( k == 39 && opts.next.key )
-							) {
-								e.preventDefault();
-								$wrpr.trigger( evt( k == 37 ? 'prev' : 'next' ) );
-							}
+
+							//	Callback event
+							$slide.trigger( _e.loading, [ $slide.data( _d.anchor ) ] );
 						}
 					}
-				}
 			);
+		},
+
+		_complementOptions: function()
+		{
+			//	Wrapper
+			if ( typeof this.opts.wrapper.target == 'undefined' )
+			{
+				this.opts.wrapper.target = ( this.$node.is( 'a' ) ) ? 'window' : this.$node;
+			}
+			if ( this.opts.wrapper.target != 'window' )
+			{
+				if ( typeof this.opts.wrapper.target == 'string' )
+				{
+					this.opts.wrapper.target = $(this.opts.wrapper.target);
+				}
+			}
+	
+			//	Show
+			this.opts.show = _f.complBoolean(  this.opts.show, this.opts.wrapper.target != 'window' );
+
+			//	Slides
+			if ( $.isNumeric( this.opts.slides.width ) )
+			{
+				this.slides.widthPercentage	= false;
+				this.opts.slides.visible 	= _f.complNumber( this.opts.slides.visible, 1 );
+			}
+			else
+			{
+				var percWidth = ( _f.isPercentage( this.opts.slides.width ) ) ? _f.getPercentage( this.opts.slides.width ) : false;
+
+				this.slides.widthPercentage	= true;
+				this.opts.slides.visible 	= _f.complNumber( this.opts.slides.visible, ( percWidth ) ? Math.floor( 100 / percWidth ) : 1 );
+				this.opts.slides.width 		= ( percWidth ) ? percWidth : Math.ceil( 100 * 100 / this.opts.slides.visible ) / 100;
+			}
+			this.opts.slides.slide		=   _f.complNumber( this.opts.slides.slide, this.opts.slides.visible );
+			this.opts.slides.offset 	= ( _f.isPercentage( this.opts.slides.offset ) ) ? _f.getPercentage( this.opts.slides.offset ) : _f.complNumber( this.opts.slides.offset, 0 );
 		}
-	}
+	};
 
 
 	/*
-		GENERAL FUNCTIONS
+		jQuery Plugin
 	*/
-	function animate( $element, properties, direct, callback, easing )
+	$.fn[ _PLUGIN_ ] = function( opts, optsD, optsT, conf )
 	{
-		var duration = _duration;
-
-		if ( $.isNumeric( direct ) )
+		//	First time plugin is fired
+		if ( !_g.$wndw )
 		{
-			duration = direct;
-			direct = false;
+			initPlugin();
 		}
 
-		if ( direct )
-		{
-			$element.css( properties );
-		}
-		else
-		{
-			setTimeout(
-				function()
-				{
-					$element.animate(
-						properties,
-						{
-							duration: duration,
-							complete: callback,
-							easing: easing,
-							queue: false
-						}
-					);
-				}, 1
-			);
-		}
-	}
-	function animateScale( $element, startScale, endScale )
-	{
-		$('<div />').css('width', startScale).animate({
-			'width': endScale
-		}, {
-			duration: _duration / 2,
-			step: function( now )
-			{
-				$element.css({
-					'transform': 'scale(' + now + ')'
-				});
-			}
-		});
-		return endScale;
-	}
-	function restrictMinMax( val, min, max )
-	{
-		if ( typeof min == 'number' && val < min )
-		{
-			val = min;
-		}
-		if ( typeof max == 'number' && val > max )
-		{
-			val = max;
-		}
-		return val;
-	}
-	function setIndex( _index, $wrpr )
-	{
-		$wrpr.data( dta( 'index' ), _index );
-		return _index;
-	}
-	function setOpened( _opened, $wrpr )
-	{
-		$wrpr.data( dta( 'opened' ), _opened );
-		return _opened;
-	}
-	function setButtons( $prev, $next, _index, _total, opts )
-	{
-		if ( $prev )
-		{
-			$prev[ ( ( _index < 1 ) ? 'add' : 'remove' ) + 'Class' ]( cls( 'disabled' ) );
-		}
-		if ( $next )
-		{
-			$next[ ( ( _index >= _total - opts.slides.visible ) ? 'add' : 'remove' ) + 'Class' ]( cls( 'disabled' ) );
-		}
-	}
-	function scaleButtons( $btns, $capt, timeout )
-	{
-		if ( _viewScale )
-		{
-			var scale = _viewScale.getScale();
+		//	Extend options
+		opts = $.extend( true, {}, $[ _PLUGIN_ ].defaults, opts );
+		opts = $.extend( true, {}, opts, $[ _PLUGIN_ ].support.touch ? optsT : optsD );
 
-			if ( typeof scale != 'undefined' )
-			{
+		//	Extend configuration
+		conf = $.extend( true, {}, $[ _PLUGIN_ ].configuration, conf );
 
-				scale = 1 / scale;
+		var clss = new $[ _PLUGIN_ ]( this, opts, conf );
 
-				var $buttons = $();
-				for ( var a = 0, l = $btns.length; a < l; a++ )
-				{
-					if ( $btns[ a ] )
-					{
-						$buttons = $buttons.add( $btns[ a ] );
-					}
-				}
-				setTimeout(
-					function()
-					{
-						if ( $capt )
-						{
-							$capt.css({
-								'text-size-adjust': Math.ceil( 100 * restrictMinMax( scale, 1, 3 ) ) + '%'
-							});
-						}
-						$buttons.css({
-							'transform': 'scale(' + restrictMinMax( scale, 1, 2 ) + ')'
-						});
-					}, timeout || 1
-				);
-			}
-		}
-	}
-	function loadContents( $sldr, _index, opts )
-	{
-		//	Preload current
-		loadContent( $sldr, _index, _index + opts.slides.visible, opts );
-
-		//	Preload prev + next
-		setTimeout(
-			function()
-			{
-				loadContent( $sldr, _index - opts.slides.visible, _index, opts );									//	prev
-				loadContent( $sldr, _index + opts.slides.visible, _index + ( opts.slides.visible * 2 ), opts );		//	next
-			}, 500
-		);
-	}
-	function loadContent( $sldr, start, end, opts )
-	{
-		$sldr.children().slice( start, end ).each(
-			function()
-			{
-				var $slide = $(this);
-				if ( $slide.children().length == 0 )
-				{
-
-					var content = $slide.data( dta( 'content' ) ),
-						orgContent = content,
-						contenttype = false,
-						videotype = 'youtube';
-
-					//	IMAGES
-					if ( $.inArray( content.toLowerCase().split( '.' ).pop().split( '?' )[ 0 ], [ 'jpg', 'jpe', 'jpeg', 'gif', 'png' ] ) > -1 )
-					{
-						contenttype = 'image';
-					}
-
-					//	HTML NODE
-					else if ( content.indexOf( '#' ) == 0 )
-					{
-						content = $(content);
-						contenttype = 'html';
-					}
-
-					//	YOUTUBE (video)
-					else if ( content.toLowerCase().indexOf( 'youtube.com/watch' ) > -1 )
-					{
-						content = content.split( '?v=' )[ 1 ].split( '&' )[ 0 ];
-						if ( opts.video.imageLink )
-						{
-							content = 'http://img.youtube.com/vi/' + content + '/0.jpg';
-							contenttype = 'videolink';
-						}
-						else
-						{
-							content = 'http://www.youtube.com/embed/' + content;
-							contenttype = 'video';
-						}
-					}
-
-					//	VIMEO (video)
-					else if ( content.toLowerCase().indexOf( 'vimeo.com/' ) > -1  )
-					{
-						content = 'http://player.vimeo.com/video/' + content.split( 'vimeo.com/' )[ 1 ].split( '?' )[ 0 ] + '?api=1';
-						contenttype = 'video';
-						videotype = 'vimeo';
-					}
-
-					$slide.data( dta( 'contenttype' ), contenttype );
-
-					switch ( contenttype )
-					{
-
-						//	IMAGE
-						case 'image':
-						case 'videolink':
-							$('<img border="0" />')
-								.bind(
-									evt( 'load' ),
-									function( e )
-									{
-										e.stopPropagation();
-										$slide.removeClass( cls( 'loading' ) );
-
-										if ( contenttype == 'videolink' )
-										{
-											$('<a href="' + orgContent + '" class="' + cls( 'play' ) + '" />')
-												.appendTo( $slide );
-										}
-										else
-										{
-											if ( opts.touch.zoom )
-											{
-												$.fn.TosRUs.pinchZoom( $(this) );
-											}
-										}
-									}
-								)
-								.appendTo( $slide )
-								.attr( 'src', content );
-
-							break;
+		this.data( _PLUGIN_, clss );
+		return clss.nodes.$wrpr;
+	};
 
 
-						//	HTML NODE
-						case 'html':
-							$slide.removeClass( cls( 'loading' ) );
-							$('<div class="' + cls( 'content' ) + '" />')
-								.append( content )
-								.appendTo( $slide );
-
-							break;
+	/*
+		SUPPORT
+	*/
+	$[ _PLUGIN_ ].support = {
+		touch: 'ontouchstart' in window.document
+	};
 
 
-						//	VIDEO
-						case 'video':
-							$slide.data( dta( 'videotype' ), videotype );
-
-							var $anchor = $slide.data( dta( 'anchor' ) );
-
-							$('<iframe src="' + content + '" frameborder="0" allowfullscreen />')
-								.appendTo( $slide );
-
-							_initResizeVideo(
-								$slide,
-								$anchor.data( dta( 'ratio' ) ) || opts.video.ratio,
-								$anchor.data( dta( 'maxWidth' ) ) || opts.video.maxWidth,
-								$anchor.data( dta( 'maxHeight' ) ) || opts.video.maxHeight
-							);
-
-							setTimeout(
-								function()
-								{
-									$slide.removeClass( cls( 'loading' ) );
-								}, 2500
-							);
-
-							break;
-
-					}
-					$sldr.parent().trigger( 'loading', [ $slide.data( dta( 'anchor' ) ), $slide ] );
-				}
-
-				if ( $slide.data( dta( 'contenttype' ) ) == 'video' )
-				{
-					$slide.trigger( evt( 'resizeVideo' ) );
-				}
-			}
-		);
-	}
-	function stopVideo( $slides, fn )
-	{
-		$slides.each(
-			function()
-			{
-				var $slide = $(this),
-					iframe = $slide.find( 'iframe' )[ 0 ];
-
-				switch ( $slide.data( dta( 'videotype' ) ) )
-				{
-					case 'youtube':
-						iframe.contentWindow.postMessage( '{ "event": "command", "func": "' + fn + 'Video" }', '*' );
-						break;
-					
-					case 'vimeo':
-						if ( fn == 'stop' )
-						{
-							fn = 'unload';
-						}
-						iframe.contentWindow.postMessage( '{ "method": "' + fn + '" }', '*' );
-						break;
-				}
-			}
-		);
-	}
-
-	function getValidAnchors( $org, opts )
-	{
-		var $anchors = $();
-
-		if ( opts.slides.collect )
-		{
-			$anchors = $anchors.add( $org.filter( 'a[href*=".gif"]' ) );					//	gif
-			$anchors = $anchors.add( $org.filter( 'a[href*=".png"]' ) );					//	png
-			$anchors = $anchors.add( $org.filter( 'a[href*=".jpg"]' ) );					//	jpg
-			$anchors = $anchors.add( $org.filter( 'a[href*=".jpe"]' ) );
-			$anchors = $anchors.add( $org.filter( 'a[href*=".jpeg"]' ) );
-			$anchors = $anchors.add( $org.filter( 'a[href^="#"][href!="#"]' ) );			//	hidden content
-			$anchors = $anchors.add( $org.filter( 'a[href*="youtube.com/watch?v="]' ) );	//	youtube
-			$anchors = $anchors.add( $org.filter( 'a[href*="vimeo.com/"]' ) );				//	vimeo	
-		}
-		return $anchors;
-	}
-	function getZoomAnchors( $org, opts )
-	{
-		var $anchors = $();
-		if ( opts.anchors.zoomIcon )
-		{
-			$org.each(
-				function()
-				{
-					var $t = $(this),
-						$i = $t.children();
-
-					if ( $i.length == 1 && $i.is( 'img' ) && $i.width() > 99 && $i.height() > 99 )
-					{
-						$anchors = $anchors.add( $t );
-					}
-				}
-			);
-		}
-		return $anchors;
-	}
-
-/*
-	$.fn.TosRUs.defaults = {
-		show: false,
-		draggable: {
-			drag: false,
-			zoom: false
+	/*
+		Options
+	*/
+	$[ _PLUGIN_ ].defaults = {
+//		show		: null,				//	true for inline slider, false for popup lightbox
+		infinite	: false,
+		effect		: 'slide',
+		wrapper	: {
+//			target	: null,				//	"window" for lightbox popup
+			classes	: '',
+			onClick	: 'toggleUI'		//	"toggleUI", "close" or null
 		},
-		buttons: true,
-		keys: false,
-		caption: ["rel", "title"],
-		wrapper: {
-			target: 'window',
-			css: {
-			}
-		},
-		slides: {
-			visible: 1,
-			collect: true,
-			css: {
-			}
-		},
-		anchors: {
-			event: "click",
-			zoomIcon: true,
-			css: {
-			}
-		},
-		prev: {
-			slides: 1,
-			button: true,
-			key: false
-		},
-		next: {
-			slides: 1,
-			button: true,
-			key: false
-		},
-		close: {
-			button: true,
-			key: false
-		},
-		video: {
-			ratio: 16 / 9,
-			maxWidth: false,
-			maxHeight: false
+		slides	: {
+//			slide	: null,				//	slides.visible
+//			width	: null,				//	auto, max 100%
+			offset	: 0,
+			scale	: 'fit',			//	"fit" or "fill" (for images only)
+			load	: 'near-visible',	//	"all", "visible" or "near-visible"
+			visible	: 1
 		}
 	};
-*/
-	function complementOptions( o, $tos, _tos )
+
+	$[ _PLUGIN_ ].configuration = {
+		transitionDuration: 400
+	};
+
+
+	/*
+		DEBUG
+	*/
+	$[ _PLUGIN_ ].debug = function( msg ) {};
+	$[ _PLUGIN_ ].deprecated = function( depr, repl )
+	{
+		if ( typeof console != 'undefined' && typeof console.warn != 'undefined' )
+		{
+			console.warn( _PLUGIN_ + ': ' + depr + ' is deprecated, use ' + repl + ' instead.' );
+		}
+	};
+
+
+	/*
+		EFFECTS
+	*/
+	$[ _PLUGIN_ ].effects = {
+		'slide': function( left )
+		{
+			this.nodes.$sldr.css( 'left', left );
+		},
+		'fade': function( left )
+		{
+			_f.transitionend( this.nodes.$sldr,
+				function()
+				{
+					$(this)
+						.css( 'left', left )
+						.css( 'opacity', 1 );
+				}, this.conf.transitionDuration
+			);
+			this.nodes.$sldr.css( 'opacity', 0 );
+		}
+	};
+
+
+	$[ _PLUGIN_ ].version 	= _VERSION_;
+	$[ _PLUGIN_ ].media		= {};
+	$[ _PLUGIN_ ].addons 	= [];
+	$[ _PLUGIN_ ].ui		= [];
+
+
+	/*
+		Private functions
+	*/
+	function initPlugin()
 	{
 
-		//	Complement objects
+		//	Classnames, Datanames, Eventnames
+		_c = function( c ) { return _ABBR_ + '-' + c; };
+		_d = function( d ) { return _ABBR_ + '-' + d; };
+		_e = function( e ) { return e + '.' + _ABBR_; };
 
-		//	wrapper
-		if ( $.isFunction( o.wrapper ) )
-		{
-			o.wrapper = {
-				target: o.wrapper.call( _tos )
-			};
-		}
-		else if ( typeof o.wrapper == 'string' )
-		{
-			o.wrapper = {
-				target: $(o.wrapper)
-			}
-		}
-		o.wrapper = complObject( o.wrapper, {} );
-
-		if ( typeof o.touch == 'boolean' )
-		{
-			o.touch = {
-				drag: o.touch,
-				zoom: o.touch
-			};
-		}
-		o.touch = complObject( o.touch, {} );
-
-		//	slides
-		if ( $.isNumeric( o.slides ) )
-		{
-			o.slides = {
-				visible: o.slides
-			};
-		}
-		else if ( typeof o.slides == 'string'  )
-		{
-			o.slides = {
-				scale: o.slides
-			};
-		}
-		o.slides = complObject( o.slides, {} );
-
-		//	anchors
-		if ( typeof o.anchors == 'boolean' )
-		{
-			o.anchors = {
-				zoomIcon: o.anchors
-			};
-		}
-		else if ( typeof o.anchors == 'string' )
-		{
-			o.anchors = {
-				event: o.anchors
-			}
-		}
-		o.anchors = complObject( o.anchors, {} );
-
-		//	video
-		if ( $.isNumeric( o.video ) )
-		{
-			o.video = {
-				ratio: o.video
-			};
-		}
-		o.video = complObject( o.video, {} );
-
-
-		//	Fill options
-
-		//	wrapper
-		o.wrapper.css = complObject( o.wrapper.css, {} );
-		if ( $.isFunction( o.wrapper.target ) )
-		{
-			o.wrapper.target = o.wrapper.target.call( _tos );
-		}
-		if ( typeof o.wrapper.target == 'string' )
-		{
-			o.wrapper.target = $(o.wrapper.target);
-		}
-		if ( !(o.wrapper.target instanceof $) || o.wrapper.target.length == 0 )
-		{
-			o.wrapper.target = ( o.slides.collect === false ) ? $tos : 'window';
-		}
-
-		//	show, touch, buttons, keys
-		o.show = complBoolean(  o.show, !( o.wrapper.target == 'window' ) );
-		o.touch = ( $.fn.hammer )
-			? {
-				drag: complBoolean( o.touch.drag, _isTouch ),
-				zoom: complBoolean( o.touch.zoom, _isTouch && o.wrapper.target == 'window' )
-			} : {
-				drag: false,
-				zoom: false
-			};
-
-		o.buttons = complBoolean( o.buttons, !o.touch.drag );
-		o.keys = complBoolean( o.keys, ( !o.touch.drag && !o.buttons ) );
-
-		//	caption
-		if ( typeof o.caption == 'string' )
-		{
-			o.caption = [ o.caption ];
-		}
-		if ( o.caption !== false && !$.isArray( o.caption ) )
-		{
-			o.caption = ( o.wrapper.target == 'window' || o.caption === true ) ? [ 'rel', 'title' ] : false;
-		}
-
-		//	slides
-		if ( $.isNumeric( o.slides.width ) )
-		{
-			o.slidesWidthPercentage = false;
-			o.slides.visible = complNumber( o.slides.visible, 1 );
-		}
-		else
-		{
-			var percWidth = ( isPercentage( o.slides.width ) ) ? getPercentage( o.slides.width ) : false;
-
-			o.slidesWidthPercentage = true;
-			o.slides.visible = complNumber( o.slides.visible, ( percWidth ) ? Math.floor( 100 / percWidth ) : 1 );
-			o.slides.width = ( percWidth ) ? percWidth : Math.ceil( 100 * 100 / o.slides.visible ) / 100;
-		}
-
-		o.slides.offset = ( isPercentage( o.slides.offset ) ) ? getPercentage( o.slides.offset ) : complNumber( o.slides.offset, 0 );
-		o.slides.collect = complBoolean( o.slides.collect, o.wrapper.target == 'window' );
-		o.slides.scale = complString( o.slides.scale, 'fit' );
-		o.slides.css = complObject( o.slides.css, {} );
-
-		//	anchors
-		o.anchors.zoomIcon = complBoolean( o.anchors.zoomIcon, ( !_isTouch && o.wrapper.target == 'window' ) );
-		o.anchors.event = complString( o.anchors.event, 'click' );
-		o.anchors.css = complObject( o.anchors.css, {} );
-
-		//	prev, next, close
-		o = complButton( 'prev', o );
-		o = complButton( 'next', o );
-		o = complButton( 'close', o );
-
-		//	video
-		o.video.ratio = complNumber( o.video.ratio, 16 / 9 );
-		o.video.maxWidth = complNumber( o.video.maxWidth, false );
-		o.video.maxHeight = complNumber( o.video.maxHeight, false );
-		o.video.imageLink = complBoolean( o.video.imageLink, _isTouch );
-
-		return o;
-	}
-	function complButton( btn, o )
-	{
-		var navi = ( btn != 'close' );
-
-		if ( navi && $.isNumeric( o[ btn ] ) )
-		{
-			o[ btn ] = {
-				slides: o[ btn ]
-			};
-		}
-		switch( typeof o[ btn ] )
-		{
-			case 'boolean':
-			case 'string':
-				o[ btn ] = {
-					button: o[ btn ]
+		$.each( [ _c, _d, _e ],
+			function( i, o )
+			{
+				o.add = function( c )
+				{
+					c = c.split( ' ' );
+					for ( var d in c )
+					{
+						o[ c[ d ] ] = o( c[ d ] );
+					}
 				};
-				break;
+			}
+		);
+
+		//	Classnames
+		_c.add( 'touch desktop scale-1 scale-2 scale-3 wrapper opened opening fixed inline hover slider slide loading noanimation fastanimation' );
+
+		//	Datanames
+		_d.add( 'slide anchor' );
+
+		//	Eventnames
+		_e.add( 'open opening close closing prev next slideTo sliding click pinch scroll resize orientationchange load loading loaded transitionend webkitTransitionEnd' );
+
+		//	Functions
+		_f = {
+			complObject: function( option, defaultVal )
+			{
+				if ( !$.isPlainObject( option ) )
+				{
+					option = defaultVal;
+				}
+				return option;
+			},
+			complBoolean: function( option, defaultVal )
+			{
+				if ( typeof option != 'boolean' )
+				{
+					option = defaultVal;
+				}
+				return option;
+			},
+			complNumber: function( option, defaultVal )
+			{
+				if ( !$.isNumeric( option ) )
+				{
+					option = defaultVal;
+				}
+				return option;
+			},
+			complString: function( option, defaultVal )
+			{
+				if ( typeof option != 'string' )
+				{
+					option = defaultVal;
+				}
+				return option;
+			},
+			isPercentage: function( value )
+			{
+				return ( typeof value == 'string' && value.slice( -1 ) == '%' );
+				{
+					value = parseInt( value.slice( 0, -1 ) );
+				}
+				return !isNaN( value );
+			},
+			getPercentage: function( value )
+			{
+				return parseInt( value.slice( 0, -1 ) );
+			},
+			resizeRatio: function( $i, $o, maxWidth, maxHeight, ratio )
+			{		
+				var _w = $o.width(),
+					_h = $o.height();
+		
+				if ( maxWidth && _w > maxWidth )
+				{
+					_w = maxWidth;
+				}
+				if ( maxHeight && _h > maxHeight )
+				{
+					_h = maxHeight;
+				}
+		
+				if ( _w / _h < ratio )
+				{
+					_h = _w / ratio;
+				}
+				else
+				{
+					_w = _h * ratio;
+				}
+				$i.width( _w ).height( _h );
+			},
+			transitionend: function( $e, fn, duration )
+	        {
+				var _ended = false,
+					_fn = function()
+					{
+						if ( !_ended )
+						{
+							fn.call( $e[ 0 ] );
+						}
+						_ended = true;
+					};
+
+				$e.one( _e.transitionend, _fn );
+				$e.one( _e.webkitTransitionEnd, _fn );
+				setTimeout( _fn, duration * 1.1 );
+	        },
+	        setViewportScale: function()
+	        {
+	        	if ( _g.viewportScale )
+				{
+					var scale = _g.viewportScale.getScale();
+					if ( typeof scale != 'undefined' )
+					{
+						scale = 1 / scale;
+						_g.$body
+							.removeClass( _c[ 'scale-1' ] )
+							.removeClass( _c[ 'scale-2' ] )
+							.removeClass( _c[ 'scale-3' ] )
+							.addClass( _c[ 'scale-' + Math.max( Math.min( Math.round( scale ), 3 ), 1 ) ] );
+					}
+				}
+	        }
+		};
+
+		// Global variables
+		_g = {
+			$wndw	: $(window),
+			$html	: $('html'),
+			$body	: $('body'),
+
+			scrollPosition			: 0,
+			viewportScale			: null,
+			viewportScaleInterval	: null
+		};
+
+
+		//	Touch or desktop
+		_g.$body.addClass( $[ _PLUGIN_ ].support.touch ? _c.touch : _c.desktop )
+
+		//	Prevent scroling if opened
+		_g.$wndw
+			.on( _e.scroll,
+				function( e )
+				{
+					if ( _g.$body.hasClass( _c.opened ) )
+					{
+						window.scrollTo( 0, _g.scrollPosition );
+						e.preventDefault();
+						e.stopPropagation();
+						e.stopImmediatePropagation();
+					}
+				}
+			);
+
+		//	Invert viewport-scale
+		if ( !_g.viewportScale && $[ _PLUGIN_ ].support.touch && typeof FlameViewportScale != 'undefined' )
+		{
+			_g.viewportScale = new FlameViewportScale();
+			_f.setViewportScale();
+			_g.$wndw
+				.on( _e.orientationchange + ' ' + _e.resize,
+					function( e )
+					{
+						if ( _g.viewportScaleInterval )
+						{
+							clearTimeout( _g.viewportScaleInterval );
+							_g.viewportScaleInterval = null;
+						}
+						_g.viewportScaleInterval = setTimeout(
+							function()
+							{
+								_f.setViewportScale();
+							}, 500
+						);
+					}
+				);
 		}
 
-		if ( !$.isPlainObject( o[ btn ] ) )
-		{
-			o[ btn ] = {};
-		}
-		if ( navi && ( !$.isNumeric( o[ btn ].slides ) || o[ btn ].slides < 1 ) )
-		{
-			o[ btn ].slides = o.slides.visible;
-		}
 
-		if ( typeof o[ btn ].button == 'string' )
-		{
-				o[ btn ].button = $(o[ btn ].button);
-		}
-		if ( !( o[ btn ].button instanceof $ ) )
-		{
-			var defaultBtn = ( navi )
-				? o.buttons
-				: ( o.wrapper.target == 'window' );
-
-			o[ btn ].button = complBoolean( o[ btn ].button, defaultBtn );
-		}
-
-		var defaultKey = ( navi )
-			? o.keys
-			: ( o.wrapper.target == 'window' && ( o.keys || !o[ btn ].button ) )
-
-		o[ btn ].key = complBoolean( o[ btn ].key, defaultKey );
-
-		return o;
-	}
-	function complObject( option, defaultVal )
-	{
-		if ( !$.isPlainObject( option ) )
-		{
-			option = defaultVal;
-		}
-		return option;
-	}
-	function complBoolean( option, defaultVal )
-	{
-		if ( typeof option != 'boolean' )
-		{
-			option = defaultVal;
-		}
-		return option;
-	}
-	function complNumber( option, defaultVal )
-	{
-		if ( !$.isNumeric( option ) )
-		{
-			option = defaultVal;
-		}
-		return option;
-	}
-	function complString( option, defaultVal )
-	{
-		if ( typeof option != 'string' )
-		{
-			option = defaultVal;
-		}
-		return option;
-	}
-
-	function isPercentage( value )
-	{
-		return ( typeof value == 'string' && value.slice( -1 ) == '%' );
-		{
-			value = parseInt( value.slice( 0, -1 ) );
-		}
-		return !isNaN( value );
-	}
-	function getPercentage( value )
-	{
-		return parseInt( value.slice( 0, -1 ) );
-	}
-
-	var cls = function( cls )
-	{
-		return 'tos-' + cls;
+		//	Add to plugin
+		$[ _PLUGIN_ ]._c = _c;
+		$[ _PLUGIN_ ]._d = _d;
+		$[ _PLUGIN_ ]._e = _e;
+		$[ _PLUGIN_ ]._f = _f;
+		$[ _PLUGIN_ ]._g = _g;
 	};
-	var dta = function( dta )
-	{
-		return 'tos-' + dta;
-	};
-	var evt = function( evt )
-	{
-		return evt + '.tos';
-	};
-
 
 })( jQuery );

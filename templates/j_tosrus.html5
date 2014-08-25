@@ -1,22 +1,21 @@
 <?php
 
 // Add the mediabox style sheet
-$GLOBALS['TL_CSS'][] = 'system/modules/tosrus/assets/css/jquery.tosrus.css||static';
+$GLOBALS['TL_CSS'][] = 'system/modules/tosrus/assets/css/jquery.tosrus.all.css||static';
 
 ?>
-
-<script src="system/modules/tosrus/assets/js/jquery.tosrus.min.js"></script>
 <script src="system/modules/tosrus/assets/js/jquery.hammer.min.js"></script>
 <script src="system/modules/tosrus/assets/js/FlameViewportScale.js"></script>
+<script src="system/modules/tosrus/assets/js/jquery.tosrus.min.all.js"></script>
 
 <script>
   (function($) {
     $(document).ready(function() {
       $('.ce_gallery').each(function(){
-        $("a", this).TosRUs();
+        $("a", this).tosrus();
       });
       $('a[data-lightbox]').each(function(){
-        if($(this).attr('data-lightbox').substring(0,2) != "lb") $(this).TosRUs();
+        if($(this).attr('data-lightbox').substring(0,2) != "lb") $(this).tosrus();
       })
     });
   })(jQuery);
