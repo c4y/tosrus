@@ -3,10 +3,12 @@
 // Add the mediabox style sheet
 $GLOBALS['TL_CSS'][] = 'system/modules/tosrus/assets/css/jquery.tosrus.all.css||static';
 
+// Add the mediabox Javascript
+$GLOBALS['TL_JAVASCRIPT'][] = "system/modules/tosrus/assets/js/jquery.hammer.min.js|static";
+$GLOBALS['TL_JAVASCRIPT'][] = "system/modules/tosrus/assets/js/FlameViewportScale.js|static";
+$GLOBALS['TL_JAVASCRIPT'][] = "system/modules/tosrus/assets/js/jquery.tosrus.min.all.js|static";
+
 ?>
-<script src="system/modules/tosrus/assets/js/jquery.hammer.min.js"></script>
-<script src="system/modules/tosrus/assets/js/FlameViewportScale.js"></script>
-<script src="system/modules/tosrus/assets/js/jquery.tosrus.min.all.js"></script>
 
 <script>
   (function($) {
